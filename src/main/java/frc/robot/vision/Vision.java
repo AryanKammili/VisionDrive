@@ -1,12 +1,13 @@
 package frc.robot.vision;
 
-import java.util.Vector;
 
 import org.littletonrobotics.junction.Logger;
 
 import edu.wpi.first.math.VecBuilder;
+import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.numbers.N3;
+import frc.robot.util.debugging.LoggedTunableNumber;
 
 public class Vision {
 
@@ -16,6 +17,11 @@ public class Vision {
     
     private VisionHardware[] cameras;
     private VisionInputsAutoLogged[] camerasData;
+
+    private static final LoggedTunableNumber kSingleXYStdev = new LoggedTunableNumber(
+        "Vision/kSingleXYStdev", VisionConstants.kSingleStdDevs.get(0));
+    private static final LoggedTunableNumber kMultiXYStdev = new LoggedTunableNumber(
+        "Vision/kMultiXYStdev", VisionConstants.kMultiStdDevs.get(0));
 
     public Vision(VisionHardware[] cameras){
         this.cameras = cameras;
@@ -79,7 +85,65 @@ public class Vision {
                         data.latestTimestap, 
                         data.cameraName);
                 }
+                
+                // True average distance, earlier it was just the sum of distances //
+                avgDistance = avgDistance / numTargets;
+                Logger.recordOutput("Vision/AvgDistance(M)", avgDistance);
+
+                double scalar = Math.pow(avgDistance, 2) / numTargets;
+
+                if(numTargets == 0 || (numTargets == 1 && avgDistance > 3.5)){
+                    observations[j] = new VisionObservation(
+                        true, 
+                        data.estimatedRobotPose.toPose2d(), 
+                        VecBuilder.fill(
+                            Double.MAX_VALUE, 
+                            Double.MAX_VALUE, 
+                            Double.MAX_VALUE), 
+                        data.latestTimestap, 
+                        data.cameraName);
+                }
+
+                else if(numTargets == 1){
+                    observations[j] = new VisionObservation(
+                        true, 
+                        data.estimatedRobotPose.toPose2d(), 
+                        VecBuilder.fill(
+                            kSingleXYStdev.get() * scalar, 
+                            kSingleXYStdev.get() * scalar, 
+                            Double.MAX_VALUE), 
+                        data.latestTimestap, 
+                        data.cameraName);
+                }
+
+                else{
+                    observations[j] = new VisionObservation(
+                        true, 
+                        data.estimatedRobotPose.toPose2d(), 
+                        VecBuilder.fill(
+                            kMultiXYStdev.get() * scalar, 
+                            kMultiXYStdev.get() * scalar, 
+                            Double.MAX_VALUE), 
+                        data.latestTimestap, 
+                        data.cameraName);    
+                }
             }
+
+            else{
+                observations[j] = new VisionObservation(
+                    false, new Pose2d(), 
+                    VecBuilder.fill(
+                        Double.MAX_VALUE, 
+                        Double.MAX_VALUE, 
+                        Double.MAX_VALUE), 
+                        data.latestTimestap, 
+                        data.cameraName);
+            }
+
+            j++;
         }
+
+        return observations;
     }
+
 }
