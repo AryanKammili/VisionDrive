@@ -9,10 +9,10 @@ import edu.wpi.first.math.numbers.N3;
 
 public class VisionConstants {
 
-    public static final String kLeftCamName = "Example Camera";
+    public static final String kExampleCamName = "Example Camera";
     // The camera transform is the 3d distances between the center of the robot and the camera //
     // The camera rotation gets the different oreientations of the camera //
-    public static final Transform3d kLeftCamTransform = new Transform3d(
+    public static final Transform3d kExampleTransform = new Transform3d(
         new Translation3d(0, 0, 0),
         new Rotation3d(0.0, 0.0, 0.0)
     );

@@ -30,6 +30,8 @@ import frc.robot.drive.Gyro.GyroHardware;
 import frc.robot.drive.Gyro.GyroInputsAutoLogged;
 import frc.robot.drive.SwerveModule.SwerveModule;
 import frc.robot.util.debugging.SysIDCharacterization;
+import frc.robot.vision.Vision;
+import frc.robot.vision.Vision.VisionObservation;
 
 public class Drive extends SubsystemBase{
 
@@ -63,12 +65,15 @@ public class Drive extends SubsystemBase{
 
     private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(SwerveConstants.ModuleTranslations);
 
+    private Vision vision;
+
     @AutoLogOutput(key="Drive/CurrentState")
     private DriveState driveState = DriveState.TELEOP;
     
-    public Drive(SwerveModule[] modules, GyroHardware gyro){
+    public Drive(SwerveModule[] modules, GyroHardware gyro, Vision vision){
         this.modules = modules;
         this.gyro = gyro;
+        this.vision = vision;
         robotRotation = gyroInputs.yaw;
 
         swerveOdometry = new SwerveDriveOdometry(kinematics, getRobotRotation(), getModulePositions());
@@ -105,6 +110,24 @@ public class Drive extends SubsystemBase{
         }
 
         robotRotation = gyroInputs.yaw;
+
+        if(vision != null) {
+            vision.periodic(swervePoseEstimator.getEstimatedPosition());
+            VisionObservation[] observations = vision.getVisionObservations();
+            for(VisionObservation observation : observations) {
+                if(observation.hasObserved()) {
+                    swervePoseEstimator.addVisionMeasurement(
+                        observation.pose(), 
+                        observation.timeStamp(), 
+                        observation.stdDevs());
+                }
+
+                Logger.recordOutput(observation.camName()+"/stdDevX", observation.stdDevs().get(0));
+                Logger.recordOutput(observation.camName()+"/stdDevY", observation.stdDevs().get(1));
+                Logger.recordOutput(observation.camName()+"/stdDevTheta", observation.stdDevs().get(2));
+                Logger.recordOutput(observation.camName()+"/Transform", swerveOdometry.getPoseMeters().minus(observation.pose()));
+            }
+        }
 
         swervePoseEstimator.update(robotRotation, getModulePositions());
         swerveOdometry.update(robotRotation, getModulePositions());
